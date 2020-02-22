@@ -1,0 +1,102 @@
+version: '3'
+services:
+
+  webserver:
+    image: nginx:alpine
+    restart: unless-stopped
+    container_name: nginx
+    tty: true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./apps/products_service/:/var/www/products_service
+      - ./apps/api_gateway/:/var/www/api_gateway
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/sites/:/etc/nginx/conf.d/
+      - ./docker/nginx/ssl/:/etc/ssl/
+    networks:
+      - app-network
+
+  products_service:
+    container_name: products_service
+    build:
+      context: apps/products_service
+      dockerfile: Dockerfile
+    image: digitalocean.com/php
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: products_service
+      SERVICE_TAGS: dev
+    working_dir: /var/www/products_service
+    volumes:
+      - ./apps/products_service/:/var/www/products_service
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - app-network
+
+  api_gateway:
+    container_name: api_gateway
+    build:
+      context: apps/api_gateway
+      dockerfile: Dockerfile
+    image: digitalocean.com/php
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: api_gateway
+      SERVICE_TAGS: dev
+    working_dir: /var/www/api_gateway
+    volumes:
+      - ./apps/api_gateway/:/var/www/api_gateway
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - app-network
+
+  db_products:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    tty: true
+    container_name: db_products
+    ports:
+      - "3380:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: products_service_db
+      MYSQL_USER: philipretl
+      MYSQL_PASSWORD: hol4mundo
+    volumes:
+      - dbdata_products:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/my.cnf
+    networks:
+      - app-network
+
+  db_gateway:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    tty: true
+    container_name: db_gateway
+    ports:
+      - "3390:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: api_gateway_db
+      MYSQL_USER: philipretl
+      MYSQL_PASSWORD: hol4mundo
+    volumes:
+      - dbdata_gateway:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/my.cnf
+    networks:
+      - app-network
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  dbdata_products:
+    driver: local
+  dbdata_gateway:
+    driver: local
